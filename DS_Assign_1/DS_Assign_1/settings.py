@@ -73,21 +73,20 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'DS_Assign_1.wsgi.application'
 
+database_file = open("database_info.txt","r")
+database_name = database_file.read()
+print(database_name)
 
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
 
 DATABASES = {
-    # 'default': {
-    #     'ENGINE': 'django.db.backends.sqlite3',
-    #     'NAME': BASE_DIR / 'db.sqlite3',
-    # }
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'queue',
+        'NAME': database_name,
         'USER': 'postgres',
         'PASSWORD': 'eshamanideep25',
-        'HOST': 'localhost',
+        'HOST': 'host.docker.internal',
         'PORT': 5432,
     }
 }
