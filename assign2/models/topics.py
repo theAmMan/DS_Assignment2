@@ -1,0 +1,5 @@
+from assign2 import db
+
+class Topic(db.Model):
+    __tablename__ = "topic"
+    name = db.Column(db.String(256), primary_key = True, index = True)

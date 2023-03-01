@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -25,7 +26,7 @@ SECRET_KEY = 'django-insecure-@_y0eq1yup@xxsk)7yn8pxk04)q9o&-=r1r-45@y@!k!e$oa+g
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [*]
 
 # APPEND_SLASH = False
 
@@ -75,7 +76,7 @@ WSGI_APPLICATION = 'DS_Assign_1.wsgi.application'
 
 database_file = open("database_info.txt","r")
 database_name = database_file.read()
-print(database_name)
+print(os.environ.get('POSTGRES_NAME'))
 
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
@@ -83,10 +84,10 @@ print(database_name)
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': database_name,
+        'NAME': os.environ.get('POSTGRES_NAME'),
         'USER': 'postgres',
         'PASSWORD': 'eshamanideep25',
-        'HOST': 'host.docker.internal',
+        'HOST': 'db',
         'PORT': 5432,
     }
 }
