@@ -12,10 +12,11 @@ class Redirector():
         #We need to handle a single lock
         self._lock = threading.Lock()
         self._metadata: Dict[str, Topic] = {}
-        self._ids = [] 
+        self._ids = []
+        self._sync_with_db()
 
 
-    def sync_with_db(self) -> None: 
+    def _sync_with_db(self) -> None: 
         #Sync the in-memory metadata with the database
         self._ids.append(len(Producer_Model.query.all()))
         self._ids.append(len(Consumer_Model.query.all()))
@@ -94,7 +95,7 @@ class Redirector():
             #Inform the broker about the new consumer
             newLink = get_link(partition.broker.port) + "/consumer/register"
             _params = {"topic_name" : topic_name}
-            requests.post(newServerLink, data = _params)
+            requests.post(newLink, data = _params)
 
         return consumer_id
 
@@ -116,7 +117,7 @@ class Redirector():
         return producer_id
 
     
-    def add_log(self, topic_name: str, producer_id: int, message: str, partition_no: int = -1):
+    def add_log(self, topic_name: str, producer_id: int, message: str, partition_no: int = -1) -> None:
         #add a log to the specific partition 
         if partition_no == -1:
             if not self._exists(topic_name):
@@ -132,4 +133,13 @@ class Redirector():
             raise Exception("Topic or the Partition does not exist")
 
         #Now send the add request to the appropriate broker 
-        
+        partition = Partition_Model.query.filter_by(topic_name = topic_name, partition_number = partition_no).first()
+        newLink = get_link(partition.broker.port) + "" #Link for publishing to the specific partition of a particular topic 
+        _params = {"topic_name" : topic_name} #Complete this part as well
+
+        requests.post(newLink, data = _params)
+
+
+    def get_log(self, topic_name: str, consumer_id: int):
+        #Can return None or the message depending on if the queue is full or not
+         

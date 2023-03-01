@@ -1,1 +1,2 @@
 - Create Partition in redirector.py: Decide what to do 
+- add_log function is incomplete - Decide on the url pattern
