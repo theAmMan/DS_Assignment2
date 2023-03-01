@@ -56,6 +56,9 @@ class Redirector():
         db.session.add(Topic_Model(name = topic_name, partition_count = 1))
         db.commit()
 
+        #Create a first partition for the topic 
+        self.create_partition(topic_name)
+
 
     def get_size(self, topic_name: str, consumer_id: str, partition_no = None) -> int:
         #Get the number of remaining messages in the specific partition for the consumer
@@ -75,7 +78,7 @@ class Redirector():
 
     def add_consumer(self, topic_name: str) -> int:
         #Add a consumer to a specific topic 
-        if not _exists(topic_name):
+        if not self._exists(topic_name):
             raise Exception("Topic does not exist")
 
         with self._lock:
@@ -98,7 +101,7 @@ class Redirector():
 
     def add_producer(self, topic_name: str) -> int:
         #Add a producer to a specific topic 
-        if not _exists(topic_name):
+        if not self._exists(topic_name):
             raise Exception("Topic does not exist")
 
         with self._lock:
@@ -115,4 +118,18 @@ class Redirector():
     
     def add_log(self, topic_name: str, producer_id: int, message: str, partition_no: int = -1):
         #add a log to the specific partition 
+        if partition_no == -1:
+            if not self._exists(topic_name):
+                raise Exception("Topic does not exist")
+
+            if producer_id not in self._metadata[topic_name].producers:
+                raise Exception("Producer is not subscribed to the topic")
+            
+            partition_no = self._metadata[topic_name].current_round_robin_index
+            self._metadata[topic_name].update_round_robin()
+
+        if not self._exists(topic_name, partition_no):
+            raise Exception("Topic or the Partition does not exist")
+
+        #Now send the add request to the appropriate broker 
         
