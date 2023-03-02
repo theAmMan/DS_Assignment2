@@ -1,9 +1,11 @@
 import threading
-from assign2 import db, Topic_Model, Consumer_Model, Producer_Model, Partition_Model
+from assign2 import db, Topic_Model, Consumer_Model, Producer_Model, Partition_Model, Broker_Model
 import uuid, requests
 from topic import Topic 
-from typing import Dict
+from typing import Dict, List
 from utility_funcs import *
+
+MAX_SIZE = 10
 
 class Redirector():
     #A class that redirects all the messages to the appropriate brokers
@@ -12,6 +14,7 @@ class Redirector():
         #We need to handle a single lock
         self._lock = threading.Lock()
         self._metadata: Dict[str, Topic] = {}
+        self._broker: Dict[int, int] = {}
         self._ids = []
         self._sync_with_db()
 
@@ -20,6 +23,7 @@ class Redirector():
         #Sync the in-memory metadata with the database
         self._ids.append(len(Producer_Model.query.all()))
         self._ids.append(len(Consumer_Model.query.all()))
+        self._ids.append(len(Broker_Model.query.all()))
 
         for topic in Topic_Model.query.all():
             self._metadata[topic.name] = Topic(topic.name)
@@ -32,6 +36,10 @@ class Redirector():
 
         for partition in Partition_Model.query.all():
             self._metadata[partition.topic_name].add_partition(partition.id)
+            if partition.broker not in self._broker.keys():
+                self._broker[partition.broker] = 1
+            else:  
+                self._broker[partition.broker] += 1
 
 
     def _exists(self, topic_name: str, partition_no = None) -> bool:
@@ -60,21 +68,55 @@ class Redirector():
         #Create a first partition for the topic 
         self.create_partition(topic_name)
 
+    def get_topics(self) -> List[str]:
+        # List all topics
+        with self._lock:
+            return list(self._metadata.keys())
 
     def get_size(self, topic_name: str, consumer_id: str, partition_no = None) -> int:
         #Get the number of remaining messages in the specific partition for the consumer
+        if topic_name not in self._metadata:
+            raise Exception("Topic does not exists")
+        if consumer_id not in self._metadata[topic_name].consumers:
+            raise Exception("Consumer not registered with this topic")
         if partition_no == None: 
             #Get the remaining number of messages from each partition of the topic
-            partition = Partition_Model.query.filter
+            size = 0
+            for partition in Partition_Model.query.filter_by(topic_name = topic_name).all():
+                newLink = get_link(partition.broker.port) + "/size"
+                _params = {"topic_name" : topic_name, "consumer_id" : consumer_id}
+                size = size + requests.get(newLink, data = _params)
+            return size
+        # Feature implemented : Support for multiple partitions in a broker for the same topic
+        partition = Partition_Model.query.filter_by(topic_name = topic_name, partition_number = partition_no).first()
+        newLink = get_link(partition.broker.port) + "/size"
+        # _params = {"topic_name" : topic_name, "consumer_id" : consumer_id}
+        _params = {"topic_name" : topic_name, "consumer_id" : consumer_id, "partition_number" : partition_no}
+        return requests.get(newLink, data = _params)
+
 
 
     def create_partition(self, topic_name: str) -> None:
         #Create a partition in the specific topic 
         if topic_name not in Topic_Model.query.all():
             raise Exception("Topic does not exist")
+        with self._lock:
+            # partition_id starts at 1, and is sequential
+            partition_id = len(Partition_Model.query.filter_by(topic_name = topic_name).all()) + 1
+            self._metadata[topic_name].add_partition(partition_id)
+            #Now allocate a broker to the partition 
+            broker_number = 0
+            broker_size = MAX_SIZE # This needs to be set
+            for broker_id in self._broker.keys():
+                if self._broker[broker_id] < broker_size:
+                    broker_size = self._broker[broker_id]
+                    broker_number = broker_id
+            if broker_size == MAX_SIZE :
+                broker_number = self.add_broker()
 
-        
-        #Now allocate a broker to the partition 
+
+        db.session.add(Partition_Model(topic_name = topic_name, partition_number = partition_id, broker = broker_number))
+        db.session.commit()
 
 
     def add_consumer(self, topic_name: str) -> int:
@@ -134,12 +176,59 @@ class Redirector():
 
         #Now send the add request to the appropriate broker 
         partition = Partition_Model.query.filter_by(topic_name = topic_name, partition_number = partition_no).first()
-        newLink = get_link(partition.broker.port) + "" #Link for publishing to the specific partition of a particular topic 
-        _params = {"topic_name" : topic_name} #Complete this part as well
-
+        newLink = get_link(partition.broker.port) + "/producer/produce" #Link for publishing to the specific partition of a particular topic 
+        # _params = {"topic_name" : topic_name} #Complete this part as well
+        _params = {"topic_name" : topic_name, "partition_number" : partition_no}
         requests.post(newLink, data = _params)
 
 
     def get_log(self, topic_name: str, consumer_id: int):
         #Can return None or the message depending on if the queue is full or not
-         
+        if not self._exists(topic_name):
+            raise Exception("Topic does not exist")
+
+        if consumer_id not in self._metadata[topic_name].consumers:
+            raise Exception("Consumer is not subscribed to the topic")
+        
+        log_msg = {}
+
+        for partition in Partition_Model.query.filter_by(topic_name = topic_name).all():
+            newLink = get_link(partition.broker.port) + "/consumer/probe"
+            _params = {"topic_name" : topic_name, "consumer_id" : consumer_id}
+            msg = requests.get(newLink, data = _params)
+            if msg['status'] == 'success':
+                log_msg[partition] = msg
+
+        if len(log_msg) == 0:
+            return None
+
+        # FIX These Params
+        partition_no = -1
+        min_time = 1e9
+        for partition in log_msg.keys():
+            if log_msg[partition]['created'] < min_time :
+                min_time = log_msg[partition]['created']
+                partition_no = partition
+
+        newLink = get_link(partition_no.broker.port) + "/consumer/consume"
+        _params = {"topic_name" : topic_name, "consumer_id" : consumer_id}
+        return requests.get(newLink, data = _params)['message']
+        
+
+
+    def add_broker(self):
+        # Add new broker 
+        with self._lock:
+            broker_id = self._ids[2] + 1
+            self._ids[2] += 1
+            self._broker[broker_id] = 0
+
+        # FIX THIS
+        db.session.add(Broker_Model(id = broker_id, port = 5432+broker_id))
+        db.session.commit()
+
+        return broker_id
+
+
+    def remove_broker(self):
+        # Remove existing broker

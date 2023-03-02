@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 
 import config 
 
+from assign2 import redirector
 
 app = Flask(__name__)
 app.config.from_object(config.production_config)

@@ -1,6 +1,10 @@
 - Design Decision: Producers can publish to specific partitions 
 - Consumers can subscribe to a specific topic and we will give the output based on the time when the message has been published 
-- Please complete views.py file and the rest of the functions in redirector.py 
 - Two important functions that can be left for later are add_broker and delete_broker. 
-- Another choice that has to be made is the url pattern for which the producer can produce to a specific pattern 
+- Another choice that has to be made is the url pattern for which the producer can produce to a specific partition
 - And when a new partition has been created, a new design decision is which broker handles it(I am thinking of creating a new broker in case the latest broker has more than average numeber of partitions)
+- Current implementation : Add to the broker with least partitions, but if it crosses some threshold create a new broker
+- Feature to be implemented : Support for multiple partitions in a broker for the same topic
+- Complete add and remove broker
+- Create a url for probing for consumers
+- Modify DS_Assign1 to take the partition id as a parameter wherever required so as to support multiple partitions in a broker for the same topic
