@@ -4,6 +4,7 @@ class Topic(models.Model):
     #model for the topic
     topic_name = models.CharField(max_length = 200)
     created = models.DateTimeField(auto_now_add=True)
+    partition_number = models.PositiveIntegerField()
 
     class Meta:
         ordering = ['created']
@@ -16,7 +17,6 @@ class Producer(models.Model):
 class LogMessage(models.Model):
     message = models.TextField()
     created = models.DateTimeField(auto_now_add = True)
-    prod = models.ForeignKey(Producer,related_name = 'prod', on_delete = models.CASCADE)
 
     topic_name = models.ForeignKey(Topic, related_name = 'topic_name_lm', on_delete = models.CASCADE)
 

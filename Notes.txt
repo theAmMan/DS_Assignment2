@@ -8,3 +8,7 @@
 - Complete add and remove broker
 - Create a url for probing for consumers
 - Modify DS_Assign1 to take the partition id as a parameter wherever required so as to support multiple partitions in a broker for the same topic
+
+
+- To create the docker image: docker build -t broker .
+- To run the docker image: docker run -it -e NAME=queue -p 5000:8000 broker 

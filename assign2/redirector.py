@@ -1,9 +1,9 @@
 import threading
 from assign2 import db, Topic_Model, Consumer_Model, Producer_Model, Partition_Model, Broker_Model
 import uuid, requests
-from topic import Topic 
+from .topic import Topic 
 from typing import Dict, List
-from utility_funcs import *
+from .utility_funcs import *
 
 MAX_SIZE = 10
 
@@ -16,10 +16,9 @@ class Redirector():
         self._metadata: Dict[str, Topic] = {}
         self._broker: Dict[int, int] = {}
         self._ids = []
-        self._sync_with_db()
 
 
-    def _sync_with_db(self) -> None: 
+    def sync_with_db(self) -> None: 
         #Sync the in-memory metadata with the database
         self._ids.append(len(Producer_Model.query.all()))
         self._ids.append(len(Consumer_Model.query.all()))
@@ -91,7 +90,7 @@ class Redirector():
         partition = Partition_Model.query.filter_by(topic_name = topic_name, partition_number = partition_no).first()
         newLink = get_link(partition.broker.port) + "/size"
         # _params = {"topic_name" : topic_name, "consumer_id" : consumer_id}
-        _params = {"topic_name" : topic_name, "consumer_id" : consumer_id, "partition_number" : partition_no}
+        _params = {"topic_name" : topic_name, "consumer_id" : consumer_id, "partition_no" : partition_no}
         return requests.get(newLink, data = _params)
 
 
@@ -178,7 +177,7 @@ class Redirector():
         partition = Partition_Model.query.filter_by(topic_name = topic_name, partition_number = partition_no).first()
         newLink = get_link(partition.broker.port) + "/producer/produce" #Link for publishing to the specific partition of a particular topic 
         # _params = {"topic_name" : topic_name} #Complete this part as well
-        _params = {"topic_name" : topic_name, "partition_number" : partition_no}
+        _params = {"topic_name" : topic_name, "partition_no" : partition_no}
         requests.post(newLink, data = _params)
 
 
@@ -194,7 +193,7 @@ class Redirector():
 
         for partition in Partition_Model.query.filter_by(topic_name = topic_name).all():
             newLink = get_link(partition.broker.port) + "/consumer/probe"
-            _params = {"topic_name" : topic_name, "consumer_id" : consumer_id}
+            _params = {"topic_name" : topic_name, "partition_no" : partition.partition_number, "consumer_id" : consumer_id}
             msg = requests.get(newLink, data = _params)
             if msg['status'] == 'success':
                 log_msg[partition] = msg
@@ -211,7 +210,7 @@ class Redirector():
                 partition_no = partition
 
         newLink = get_link(partition_no.broker.port) + "/consumer/consume"
-        _params = {"topic_name" : topic_name, "consumer_id" : consumer_id}
+        _params = {"topic_name" : topic_name, "partition_no" : partition_no.partition_number, "consumer_id" : consumer_id}
         return requests.get(newLink, data = _params)['message']
         
 
@@ -232,3 +231,4 @@ class Redirector():
 
     def remove_broker(self):
         # Remove existing broker
+        return "Removed the broker"

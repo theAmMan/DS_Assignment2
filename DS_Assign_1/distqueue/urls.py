@@ -7,5 +7,6 @@ urlpatterns = [
     path('producer/register',views.registerProducer),
     path('producer/produce',views.enqueue),
     path('consumer/consume',views.dequeue),
+    path('consumer/probe',views.probe),
     path('size',views.size),
 ]

@@ -1,17 +1,21 @@
 from .models import *
 
 #basic functions to add the various logs etc in the table
-def createTopic(name):
+def createTopic(name, partition_no):
     #create a topic with the given name
     ret_dict = {}
     if name == '':
         ret_dict['status'] = "failure"
         ret_dict["message"] = "Error: Topic name cannot be blank"
         return ret_dict
-    topics = Topic.objects.filter(topic_name = name)
+    if partition_no < 1:
+        ret_dict['status'] = "failure"
+        ret_dict["message"] = "Error: Partition number needs to be a Natural Number"
+        return ret_dict
+    topics = Topic.objects.filter(topic_name = name, partition_number = partition_no)
     if not topics:
         #query set is empty, the name does not exist
-        Topic.objects.create(topic_name = name)
+        Topic.objects.create(topic_name = name, partition_number = partition_no)
         ret_dict['status'] = "sucess"
         ret_dict["message"] = "Topic "+name+" succesfully created"
         return ret_dict 
@@ -29,7 +33,6 @@ def listTopics():
         ret_dict['topics'] = []
         for x in topics:
             ret_dict['topics'].append(x.topic_name)
-            # print(x.topic_name)
         ret_dict['status'] = "success"
     return ret_dict
 
@@ -43,7 +46,8 @@ def qregisterConsumer(topic):
 
         #retrieve the last object created and add the topic they are subscribed to
         consum = Consumer.objects.filter(cid = Consumer.objects.all().count())[0]
-        consum.subscriptions.add(topics[0])
+        for topic_x in topics:
+            consum.subscriptions.add(topic_x)
         consum.save()
 
         ret_dict['status'] = "success"
@@ -69,10 +73,10 @@ def qregisterProducer(topic):
 
     return ret_dict
 
-def qenqueue(topic, pid, message):
+def qenqueue(topic, pid, message, partition_no):
     ret_dict = {'status':'failure'}
     #Check if topic is present
-    topics = Topic.objects.filter(topic_name = topic)
+    topics = Topic.objects.filter(topic_name = topic, partition_number = partition_no)
     if not topics:
         ret_dict["message"] = "Error: Invalid topic"
     else:
@@ -81,9 +85,9 @@ def qenqueue(topic, pid, message):
             ret_dict['message'] = "Error: Invalid Producer"
             return ret_dict
 
-        if producers[0].subscribed_topic != topics[0]:
-            ret_dict['message'] = "Error: Producer is not subscribed to the topic mentioned"
-            return ret_dict
+        # if producers[0].subscribed_topic != topics[0]:
+        #     ret_dict['message'] = "Error: Producer is not subscribed to the topic mentioned"
+        #     return ret_dict
         
         LogMessage.objects.create(message = message, prod = producers[0], 
                             topic_name = topics[0])
@@ -91,37 +95,64 @@ def qenqueue(topic, pid, message):
 
     return ret_dict
 
-def qsize(topic, cid):
+def qsize(topic, cid, partition_no):
     #Return the size of the queue for this topic and consumer
     ret_dict = {'status':'failure'}
-    topics = Topic.objects.filter(topic_name = topic)
-    if not topics:
-        ret_dict['message'] = "Error: Invalid topic"
+
+    if partition_no != None:
+        topics = Topic.objects.filter(topic_name = topic, partition_no = partition_no)
+        if not topics:
+            ret_dict['message'] = "Error: Invalid topic/partition"
+            return ret_dict
+        
+        consumers = Consumer.objects.filter(cid = cid)
+        if not consumers:
+            ret_dict['message'] = "Error: Invalid Consumer"
+            return ret_dict
+
+        is_subscribed = consumers[0].subscriptions.filter(topic_name = topic)
+        if not is_subscribed:
+            ret_dict['message'] = "Error: Consumer is not subscribed to the topic"
+            return ret_dict
+        
+        count = 0 
+        # for topic_x in topics:
+        count += LogMessage.objects.filter(topic_name = topic, partition_no = partition_no).count()
+        count -= consumers[0].views.filter(topic_name = topic, partition_no = partition_no).count()
+
+        ret_dict['status'] = "success"
+        ret_dict['size'] = count 
         return ret_dict
-    
-    consumers = Consumer.objects.filter(cid = cid)
-    if not consumers:
-        ret_dict['message'] = "Error: Invalid Consumer"
+
+    elif partition_no == None:
+        topics = Topic.objects.filter(topic_name = topic)
+        if not topics:
+            ret_dict['message'] = "Error: Invalid topic"
+            return ret_dict
+        
+        consumers = Consumer.objects.filter(cid = cid)
+        if not consumers:
+            ret_dict['message'] = "Error: Invalid Consumer"
+            return ret_dict
+
+        is_subscribed = consumers[0].subscriptions.filter(topic_name = topic)
+        if not is_subscribed:
+            ret_dict['message'] = "Error: Consumer is not subscribed to the topic"
+            return ret_dict
+        
+        count = 0 
+        count += LogMessage.objects.filter(topic_name = topic).count()
+
+        count -= consumers[0].views.all().count()
+
+        ret_dict['status'] = "success"
+        ret_dict['size'] = count 
         return ret_dict
 
-    is_subscribed = consumers[0].subscriptions.filter(topic_name = topic)
-    if not is_subscribed:
-        ret_dict['message'] = "Error: Consumer is not subscribed to the topic"
-        return ret_dict
-    
-    count = 0 
-    count += LogMessage.objects.filter(topic_name = topics[0]).count()
-
-    count -= consumers[0].views.all().count()
-
-    ret_dict['status'] = "success"
-    ret_dict['size'] = count 
-    return ret_dict
-
-def qdequeue(topic, cid):
+def qdequeue(topic, cid, partition_no):
     #dequeue message from the queue
     ret_dict = {'status':'failure'}
-    topics = Topic.objects.filter(topic_name = topic)
+    topics = Topic.objects.filter(topic_name = topic, partition_number = partition_no)
     if not topics:
         ret_dict["message"] = "Error: Invalid topic"
         return ret_dict
@@ -148,6 +179,40 @@ def qdequeue(topic, cid):
     #Return that message otherwise
     ret_dict['message'] = all_messages[viewed_count].message
     consumers[0].views.add(all_messages[viewed_count])
+
+    ret_dict['status'] = "success"
+    return ret_dict
+
+def qprobe(topic, cid, partition_no):
+    #Probe the top most message 
+    ret_dict = {'status':'failure'}
+    topics = Topic.objects.filter(topic_name = topic, partition_number = partition_no)
+    if not topics:
+        ret_dict["message"] = "Error: Invalid topic/Partition"
+        return ret_dict
+
+    consumers = Consumer.objects.filter(cid = cid)
+    if not consumers:
+        ret_dict['message'] = "Error: Invalid Consumer"
+        return ret_dict
+
+    is_subscribed = consumers[0].subscriptions.filter(topic_name = topic)
+    if not is_subscribed:
+        ret_dict['message'] = "Error: Consumer is not subscribed to the topic"
+        return ret_dict
+
+    #Get the first message that is not returned to the consumer
+    all_messages = LogMessage.objects.filter(topic_name = topics[0])
+
+    viewed_count = consumers[0].views.filter(topic_name = topics[0]).count()
+    if viewed_count == all_messages.count():
+        print(viewed_count)
+        ret_dict['message'] = "No log message in queue for this request"
+        return ret_dict
+
+    #Return that message otherwise
+    ret_dict['message'] = all_messages[viewed_count].message
+    ret_dict['created'] = all_messages[viewed_count].created
 
     ret_dict['status'] = "success"
     return ret_dict

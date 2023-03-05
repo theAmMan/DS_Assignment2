@@ -1,12 +1,18 @@
 import psycopg2, sys
 from psycopg2 import sql
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT # <-- ADD THIS LINE
+import os
 
-if len(sys.argv) < 2:
-    quit()
+# if len(sys.argv) < 2:
+#     quit()
 
-database_name = sys.argv[1]
-print(database_name)
+# database_name = sys.argv[1]
+# print(database_name)
+
+print("Getting environment variable...")
+database_name = os.environ["NAME"]
+
+print("Hii there " + os.environ.get('NAME'))
 
 con = psycopg2.connect(dbname='queue',
       user='postgres', host='host.docker.internal',

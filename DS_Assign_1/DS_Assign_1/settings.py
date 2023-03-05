@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-@_y0eq1yup@xxsk)7yn8pxk04)q9o&-=r1r-45@y@!k!e$oa+g
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [*]
+ALLOWED_HOSTS = ['*']
 
 # APPEND_SLASH = False
 
@@ -74,20 +74,16 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'DS_Assign_1.wsgi.application'
 
-database_file = open("database_info.txt","r")
-database_name = database_file.read()
-print(os.environ.get('POSTGRES_NAME'))
-
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': os.environ.get('POSTGRES_NAME'),
+        'NAME': 'queue',
         'USER': 'postgres',
         'PASSWORD': 'eshamanideep25',
-        'HOST': 'db',
+        'HOST': 'localhost',
         'PORT': 5432,
     }
 }

@@ -7,5 +7,6 @@ class Partition(db.Model):
     )
     partition_number = db.Column(db.Integer) #Partition ID 
     broker = db.Column(
-        db.String(32), db.ForeignKey("broker.id"), nullable = False
+        db.Integer, db.ForeignKey("broker.id"), nullable = False
     ) #which broker is currently servicing this partition
+    id = db.Column(db.Integer, primary_key = True)

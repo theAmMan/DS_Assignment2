@@ -19,11 +19,5 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # path('topics/',views.Topics),
-    # path('consumer/register',views.registerConsumer),
-    # path('producer/register',views.registerProducer),
-    # path('producer/produce',views.enqueue),
-    # path('consumer/consume',views.dequeue),
-    # path('size',views.size),
     path('',include('distqueue.urls'))
 ]

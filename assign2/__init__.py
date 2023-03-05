@@ -3,12 +3,16 @@ from flask_sqlalchemy import SQLAlchemy
 
 import config 
 
-from assign2 import redirector
-
 app = Flask(__name__)
-app.config.from_object(config.production_config)
+app.config.from_object(config.development_config)
 db = SQLAlchemy(app)
-from models import *
+from .models import *
+
+from assign2.redirector import *
+
+redirector = Redirector()
+
+from assign2 import views
 
 with app.app_context():
     if app.config["TESTING"]:
@@ -19,6 +23,11 @@ with app.app_context():
     print("Creating tables...")
     db.create_all()
     print("Table creation done")
+
+    #Initialize the in-memory data structures 
+    print("Initializing the in-memory datastructures from the database...")
+    redirector.sync_with_db()
+    print("Initialization done")
 
     if app.config["FLASK_ENV"] == "development":
         print("Development environment turned on")

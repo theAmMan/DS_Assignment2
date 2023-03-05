@@ -2,7 +2,7 @@ from flask import make_response, request, jsonify
 from flask_expects_json import expects_json 
 from jsonschema import ValidationError
 
-from assign2 import app, expects_json, redirector
+from assign2 import app, redirector
 
 @app.errorhandler(400)
 def bad_request(error):

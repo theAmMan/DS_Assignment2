@@ -4,12 +4,7 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from .queue_funcs import *
 
-# from distQueue import distQueue
-#Temporary queue implemented for Part A
-# mesgQ = distQueue()
-
 def Topics(request):
-    # print("Heeyyy thereee")
     if request.method == 'GET':
         final_resp = listTopics()
         # final_resp = {'status':'success'}
@@ -72,10 +67,13 @@ def enqueue(request):
         if request.POST.get('producer_id') == None:
             final_resp["message"] = "No key 'producer_id' found in the POST method"
             return JsonResponse(final_resp)
+        if request.GET.get('partition_no') == None:
+            final_resp["message"] = "No 'partition_no' found in the GET method"
+            return JsonResponse(final_resp)
 
         #Add the log message to the queue
         # print(request.POST.get('topic_name'),request.POST.get('producer_id'))
-        final_resp = qenqueue(request.POST.get('topic_name'),request.POST.get('producer_id'),request.POST.get('message'))
+        final_resp = qenqueue(request.POST.get('topic_name'),request.POST.get('producer_id'),request.POST.get('message'),request.POST.get('partition_no'))
         return JsonResponse(final_resp)
 
     final_resp['message'] = 'GET method not supported for this endpoint'
@@ -91,8 +89,11 @@ def dequeue(request):
         if request.GET.get('consumer_id') == None:
             final_resp["message"] = "No key 'consumer_id' found in the GET method"
             return JsonResponse(final_resp)
+        if request.GET.get('partition_no') == None:
+            final_resp["message"] = "No 'partition_no' found in the GET method"
+            return JsonResponse(final_resp)
         #Remove and return the log message from the queue
-        final_resp = qdequeue(request.GET.get('topic_name'),request.GET.get('consumer_id'))
+        final_resp = qdequeue(request.GET.get('topic_name'),request.GET.get('consumer_id'),request.GET.get('partition_no'))
         return JsonResponse(final_resp)
 
     final_resp['message'] = 'POST method not supported for this endpoint'
@@ -101,7 +102,6 @@ def dequeue(request):
 def size(request):
     final_resp = {'status':'failure'}
     if request.method == 'GET':
-        # print(request.GET.get('topic_name'))
         # Check if valid parameters
         if request.GET.get('topic_name') == None:
             final_resp["message"] = "No key 'topic_name' found in the GET method"
@@ -109,8 +109,28 @@ def size(request):
         if request.GET.get('consumer_id') == None:
             final_resp["message"] = "No key 'consumer_id' found in the GET method"
             return JsonResponse(final_resp)
-        #Return the number of log messages in the requested topic for the consumer
-        final_resp = qsize(request.GET.get('topic_name'),request.GET.get('consumer_id'))
+        final_resp = qsize(request.GET.get('topic_name'),request.GET.get('consumer_id'), request.GET.get('partition_no'))
+        return JsonResponse(final_resp)
+
+    final_resp['message'] = 'POST method not supported for this endpoint'
+    return JsonResponse(final_resp)
+
+def probe(request):
+    final_resp = {'status':'failure'}
+    if request.method == 'GET':
+        # Check if valid parameters
+        if request.GET.get('topic_name') == None:
+            final_resp["message"] = "No key 'topic_name' found in the GET method"
+            return JsonResponse(final_resp)
+        if request.GET.get('consumer_id') == None:
+            final_resp["message"] = "No key 'consumer_id' found in the GET method"
+            return JsonResponse(final_resp)
+        if request.GET.get('partition_no') == None:
+            final_resp["message"] = "No 'partition_no' found in the GET method"
+            return JsonResponse(final_resp)
+
+        #Return the probed message value for the specific partition for the consumer 
+        final_resp = qprobe(request.GET.get('topic_name'),request.GET.get('consumer_id'),request.GET.get('partition_no'))
         return JsonResponse(final_resp)
 
     final_resp['message'] = 'POST method not supported for this endpoint'
