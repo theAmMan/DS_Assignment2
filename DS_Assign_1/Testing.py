@@ -104,26 +104,3 @@ t5.join()
 t6.join()
 t7.join()
 t8.join()
-<<<<<<< HEAD
-
-# q.registerConsumer("T-1")
-# q.registerProducer("T-2")
-# q.registerProducer("T-3")
-# q.enqueue("Message 1", 5, "Enjoy2!")
-# q.enqueue("Message 1", 5, "Enjoy3!")
-# # q.dequeue("Message 1", 9)
-
-# q.size("Message 1", 9)
-
-# t1 = threading.Thread(target=producer_func, args=(1,['T-1', 'T-2', 'T-3']))
-# t2 = threading.Thread(target=producer_func, args=(2,['T-1', 'T-3']))
-# t3 = threading.Thread(target=producer_func, args=(3,['T-1']))
-# t4 = threading.Thread(target=producer_func, args=(4,['T-2']))
-# t5 = threading.Thread(target=producer_func, args=(5,['T-1', 'T-2', 'T-3']))
-
-
-# t6 = threading.Thread(target=consumer_func, args=(1,['T-1', 'T-2', 'T-3']))
-# t7 = threading.Thread(target=consumer_func, args=(2,['T-1', 'T-3']))
-# t8 = threading.Thread(target=consumer_func, args=(3,['T-1', 'T-2', 'T-3']))
-=======
->>>>>>> b383b5baf820a158602257d487fd4cbb685964c7

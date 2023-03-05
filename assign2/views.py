@@ -20,14 +20,14 @@ def bad_request(error):
 @expects_json(
     {
         "type": "object",
-        "properties": {"name": {"type": "string"}},
-        "required": ["name"],
+        "properties": {"topic_name": {"type": "string"}},
+        "required": ["topic_name"],
     },
     ignore_for=["GET"],
 )
 def topics():
     if request.method == "POST":
-        topic_name = request.get_json()["name"]
+        topic_name = request.get_json(force = True)["topic_name"]
         try:
             redirector.add_topic(topic_name)
             return make_response(
@@ -40,6 +40,7 @@ def topics():
                 200,
             )
         except Exception as e:
+            print("Exception is " + str(e))
             return make_response(
                 jsonify({"status": "failure", "message": str(e)}), 400
             )
@@ -60,7 +61,7 @@ def topics():
 @expects_json(
     {
         "type": "object",
-        "properties": {"topic": {"type": "string"}},
+        "properties": {"topic_name": {"type": "string"}},
         "required": ["topic"],
     }
 )
@@ -108,8 +109,9 @@ def register_producer():
         "type": "object",
         "properties": {
             "topic": {"type": "string"},
-            "producer_id": {"type": "string"},
+            "producer_id": {"type": "int"},
             "message": {"type": "string"},
+            "partition_no":{"type":"string"},
         },
         "required": ["topic", "producer_id", "message"],
     }
@@ -119,8 +121,9 @@ def produce():
     topic_name = request.get_json()["topic"]
     producer_id = request.get_json()["producer_id"]
     message = request.get_json()["message"]
+    partition_no = request.get_json(silent = True)["partition_no"]
     try:
-        redirector.add_log(topic_name, producer_id, message)
+        redirector.add_log(topic_name, producer_id, message,partition_no)
         return make_response(
             jsonify({"status": "success"}),
             200,
@@ -185,5 +188,31 @@ def size():
     except Exception as e:
         return make_response(
             jsonify({"status": "failure", "message": str(e)}), 400
+        )
+
+
+#A link to add new partitions to a specific topic
+@app.route(rule = "/partition", methods = ["GET"])
+@expects_json(
+    {
+        "type":"object",
+        "properties": {
+            "topic":{"type":"string"},
+            "producer_id":{"type":"int"},
+        },
+        "required": ["topic","producer_id"]
+    }
+)
+def partition():
+    """Create a new partition in the mentioned topic."""
+    topic_name = request.get_json()["topic"]
+    producer_id = request.get_json()["producer_id"]
+
+    try:
+        outcome = redirector.create_partition(topic_name, producer_id)
+        return make_response(jsonify({"status":outcome}),200)
+    except Exception as e:
+        return make_response(
+            jsonify({"status":"failure", "message": str(e)}), 400
         )
         

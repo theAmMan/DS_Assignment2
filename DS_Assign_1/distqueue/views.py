@@ -7,20 +7,17 @@ from .queue_funcs import *
 def Topics(request):
     if request.method == 'GET':
         final_resp = listTopics()
-        # final_resp = {'status':'success'}
-        # final_resp['number'] = len(list_topics)
         print(final_resp)
         return JsonResponse(final_resp)
 
     elif request.method == 'POST':
         final_resp = {'status':'message'}
         if request.POST.get('topic_name') == None:
-            # print(request.POST)
             final_resp['status'] = "failure"
             final_resp['message'] = "No key 'topic_name' found in the POST method"
             return JsonResponse(final_resp)
         else:
-            final_resp = createTopic(request.POST.get('topic_name'))
+            final_resp = createTopic(request.POST.get('topic_name'),request.POST.get('partition_no'))
             return JsonResponse(final_resp)
 
 def registerConsumer(request):
@@ -72,7 +69,6 @@ def enqueue(request):
             return JsonResponse(final_resp)
 
         #Add the log message to the queue
-        # print(request.POST.get('topic_name'),request.POST.get('producer_id'))
         final_resp = qenqueue(request.POST.get('topic_name'),request.POST.get('producer_id'),request.POST.get('message'),request.POST.get('partition_no'))
         return JsonResponse(final_resp)
 

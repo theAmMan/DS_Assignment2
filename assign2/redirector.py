@@ -4,6 +4,8 @@ import uuid, requests
 from .topic import Topic 
 from typing import Dict, List
 from .utility_funcs import *
+import docker
+import os
 
 MAX_SIZE = 10
 
@@ -15,6 +17,7 @@ class Redirector():
         self._lock = threading.Lock()
         self._metadata: Dict[str, Topic] = {}
         self._broker: Dict[int, int] = {}
+        self._containers = {}
         self._ids = []
 
 
@@ -54,6 +57,7 @@ class Redirector():
 
 
     def add_topic(self, topic_name: str) -> None:
+        print("Add Topic")
         #Add the topic
         with self._lock:
             if topic_name in self._metadata:
@@ -61,18 +65,22 @@ class Redirector():
 
             self._metadata[topic_name] = Topic(topic_name)
 
-        db.session.add(Topic_Model(name = topic_name, partition_count = 1))
-        db.commit()
+        db.session.add(Topic_Model(name = topic_name))
+        db.session.commit()
 
         #Create a first partition for the topic 
         self.create_partition(topic_name)
 
+
     def get_topics(self) -> List[str]:
+        print("Get Topics")
         # List all topics
         with self._lock:
             return list(self._metadata.keys())
 
-    def get_size(self, topic_name: str, consumer_id: str, partition_no = None) -> int:
+
+    def get_size(self, topic_name: str, consumer_id: str, partition_no: int) -> int:
+        print("Get size")
         #Get the number of remaining messages in the specific partition for the consumer
         if topic_name not in self._metadata:
             raise Exception("Topic does not exists")
@@ -95,9 +103,14 @@ class Redirector():
 
 
 
-    def create_partition(self, topic_name: str) -> None:
+    def create_partition(self, topic_name: str, producer_id = None) -> str:
+        print("Create partition")
         #Create a partition in the specific topic 
-        if topic_name not in Topic_Model.query.all():
+        if producer_id != None:
+            if producer_id not in self._metadata[topic_name].producers:
+                raise Exception("Producer is not subscribed to the topic")
+
+        if topic_name not in self._metadata.keys():
             raise Exception("Topic does not exist")
         with self._lock:
             # partition_id starts at 1, and is sequential
@@ -110,15 +123,25 @@ class Redirector():
                 if self._broker[broker_id] < broker_size:
                     broker_size = self._broker[broker_id]
                     broker_number = broker_id
-            if broker_size == MAX_SIZE :
-                broker_number = self.add_broker()
+        
+        if broker_size == MAX_SIZE:
+            broker_number = self.add_broker()
 
+        #Add the partition to the broker
+        newLink = get_link(7000+broker_number) + "/topics"
+        _params = {"topic_name":topic_name, "partition_no":partition_id}
+        resp = requests.get(newLink,data = _params)
 
-        db.session.add(Partition_Model(topic_name = topic_name, partition_number = partition_id, broker = broker_number))
-        db.session.commit()
+        if resp['status'] == "success":
+            db.session.add(Partition_Model(topic_name = topic_name, partition_number = partition_id, broker = broker_number))
+            db.session.commit()
+            return "success" 
+
+        return "failure"
 
 
     def add_consumer(self, topic_name: str) -> int:
+        print("Add consumer")
         #Add a consumer to a specific topic 
         if not self._exists(topic_name):
             raise Exception("Topic does not exist")
@@ -142,6 +165,7 @@ class Redirector():
 
 
     def add_producer(self, topic_name: str) -> int:
+        print("Add producer")
         #Add a producer to a specific topic 
         if not self._exists(topic_name):
             raise Exception("Topic does not exist")
@@ -158,9 +182,10 @@ class Redirector():
         return producer_id
 
     
-    def add_log(self, topic_name: str, producer_id: int, message: str, partition_no: int = -1) -> None:
+    def add_log(self, topic_name: str, producer_id: int, message: str, partition_no) -> None:
+        print("Add log")
         #add a log to the specific partition 
-        if partition_no == -1:
+        if partition_no == None:
             if not self._exists(topic_name):
                 raise Exception("Topic does not exist")
 
@@ -182,6 +207,7 @@ class Redirector():
 
 
     def get_log(self, topic_name: str, consumer_id: int):
+        print("Get log")
         #Can return None or the message depending on if the queue is full or not
         if not self._exists(topic_name):
             raise Exception("Topic does not exist")
@@ -214,21 +240,50 @@ class Redirector():
         return requests.get(newLink, data = _params)['message']
         
 
-
     def add_broker(self):
-        # Add new broker 
+        print("Add Broker")
+        # Add new broker
         with self._lock:
             broker_id = self._ids[2] + 1
             self._ids[2] += 1
             self._broker[broker_id] = 0
 
-        # FIX THIS
-        db.session.add(Broker_Model(id = broker_id, port = 5432+broker_id))
-        db.session.commit()
+        #Create the database
+        # print("Creating database")
+        create_database(broker_id)
+        # print("Done creating the database for broker_id " + str(broker_id))
 
-        return broker_id
+        #Run the docker container on the new database on a child process
+        pid = os.fork()
+
+        if pid > 0: 
+            #parent process
+            with self._lock:
+                #Add the container to the in-memory datastructure 
+                self._containers[broker_id] = cont 
+
+            db.session.add(Broker_Model(id = broker_id, port = 7000 + broker_id))
+            db.session.commit()
+
+            return broker_id
+
+        else:
+            #child process
+            client = docker.from_env()
+            env_str = "NAME=queue"+str(broker_id)
+            ports = {'8000/tcp':7000+broker_id}
+            cont = client.containers.run('broker', environment = [env_str], ports = ports)
 
 
-    def remove_broker(self):
-        # Remove existing broker
-        return "Removed the broker"
+    def remove_broker(self, broker_id):
+        print("Remove Broker")
+        # Remove existing broker and delete the database
+        with self._lock:
+            if self._containers[broker_id] is None:
+                raise Exception("Broker with the given id does not exist")
+            
+            #Delete the container first
+            self._containers[broker_id].stop()
+            self._containers[broker_id].prune()
+
+        delete_database(broker_id)

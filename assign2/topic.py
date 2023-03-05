@@ -14,8 +14,8 @@ class Topic:
         self.consumers.append(consumer_id)
 
     def add_partition(self, partition_id: int) -> None: 
-        self._partitions.append(partition_id)
-        self._partitions.sort()
+        self.partitions.append(partition_id)
+        self.partitions.sort()
 
         if self.current_round_robin_index == -1:
             self.current_round_robin_index = 0
