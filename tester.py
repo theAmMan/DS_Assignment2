@@ -9,7 +9,6 @@ def createTopic(topic):
     _params = {"topic_name" : topic}
     # print(_params)
     output = requests.post(newServerLink, json = _params)
-    # print(output.json())
     return output
 
 def listTopics():
@@ -57,5 +56,5 @@ def size(topic, consumer_id):
 def partition(topic, producer_id):
     newServerLink = serverLink + "/partition"
     _params = {"topic_name": topic, "producer_id": producer_id}
-    output = requests.get(newServerLink, json = _params)
+    output = requests.post(newServerLink, json = _params)
     return output.json()

@@ -6,6 +6,7 @@ from typing import Dict, List
 from .utility_funcs import *
 import docker
 import os
+import multiprocessing
 
 MAX_SIZE = 10
 
@@ -129,14 +130,17 @@ class Redirector():
 
         #Add the partition to the broker
         newLink = get_link(7000+broker_number) + "/topics"
-        _params = {"topic_name":topic_name, "partition_no":partition_id}
-        resp = requests.get(newLink,data = _params)
+        print(newLink)
+        _params = {"topic_name":topic_name, "partition_no" : partition_id}
+        resp = requests.post(newLink, json = _params)
 
-        if resp['status'] == "success":
+        if resp.json()['status'] == "success":
             db.session.add(Partition_Model(topic_name = topic_name, partition_number = partition_id, broker = broker_number))
             db.session.commit()
+            # print("Hiii?")
             return "success" 
 
+        print(resp.json())
         return "failure"
 
 
@@ -249,30 +253,18 @@ class Redirector():
             self._broker[broker_id] = 0
 
         #Create the database
-        # print("Creating database")
-        create_database(broker_id)
-        # print("Done creating the database for broker_id " + str(broker_id))
+        # create_database(broker_id)
 
         #Run the docker container on the new database on a child process
-        pid = os.fork()
+        # p = multiprocessing.Process(target = run_broker_container, args = (broker_id,))
+        # p.start()
+        # # p.join()
+        # print("Hiii")
 
-        if pid > 0: 
-            #parent process
-            with self._lock:
-                #Add the container to the in-memory datastructure 
-                self._containers[broker_id] = cont 
+        db.session.add(Broker_Model(id = broker_id, port = 7000 + broker_id))
+        db.session.commit()
 
-            db.session.add(Broker_Model(id = broker_id, port = 7000 + broker_id))
-            db.session.commit()
-
-            return broker_id
-
-        else:
-            #child process
-            client = docker.from_env()
-            env_str = "NAME=queue"+str(broker_id)
-            ports = {'8000/tcp':7000+broker_id}
-            cont = client.containers.run('broker', environment = [env_str], ports = ports)
+        return broker_id
 
 
     def remove_broker(self, broker_id):

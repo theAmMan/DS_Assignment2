@@ -1,11 +1,12 @@
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+import docker
 
 #A file for utility functions 
 def get_link(port:int) -> str:
     base = "http://127.0.0.1:"
     base += str(port)
-    base += "/"
+    # base += "/"
     return base
 
 def create_database(id: int):
@@ -47,3 +48,9 @@ def delete_database(id: int):
     except:
         #Do nothing as the database does not exist
         pass 
+
+def run_broker_container(broker_id: int):
+    client = docker.from_env()
+    env_str = "NAME=queue"+str(broker_id)
+    ports = {'8000/tcp':7000+broker_id}
+    cont = client.containers.run('broker', environment = [env_str], ports = ports)

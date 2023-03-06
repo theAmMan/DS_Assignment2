@@ -62,12 +62,12 @@ def topics():
     {
         "type": "object",
         "properties": {"topic_name": {"type": "string"}},
-        "required": ["topic"],
+        "required": ["topic_name"],
     }
 )
 def register_consumer():
     """Register a consumer for a topic."""
-    topic_name = request.get_json()["topic"]
+    topic_name = request.get_json()["topic_name"]
     try:
         consumer_id = redirector.add_consumer(topic_name)
         return make_response(
@@ -84,13 +84,13 @@ def register_consumer():
 @expects_json(
     {
         "type": "object",
-        "properties": {"topic": {"type": "string"}},
-        "required": ["topic"],
+        "properties": {"topic_name": {"type": "string"}},
+        "required": ["topic_name"],
     }
 )
 def register_producer():
     """Register a producer for a topic."""
-    topic_name = request.get_json()["topic"]
+    topic_name = request.get_json()["topic_name"]
     try:
         producer_id = redirector.add_producer(topic_name)
         return make_response(
@@ -108,17 +108,17 @@ def register_producer():
     {
         "type": "object",
         "properties": {
-            "topic": {"type": "string"},
-            "producer_id": {"type": "int"},
+            "topic_name": {"type": "string"},
+            "producer_id": {"type": "integer"},
             "message": {"type": "string"},
-            "partition_no":{"type":"string"},
+            "partition_no":{"type":"integer"},
         },
-        "required": ["topic", "producer_id", "message"],
+        "required": ["topic_name", "producer_id", "message"],
     }
 )
 def produce():
     """Add a log to a topic."""
-    topic_name = request.get_json()["topic"]
+    topic_name = request.get_json()["topic_name"]
     producer_id = request.get_json()["producer_id"]
     message = request.get_json()["message"]
     partition_no = request.get_json(silent = True)["partition_no"]
@@ -139,15 +139,15 @@ def produce():
     {
         "type": "object",
         "properties": {
-            "topic": {"type": "string"},
-            "consumer_id": {"type": "string"},
+            "topic_name": {"type": "string"},
+            "consumer_id": {"type": "integer"},
         },
-        "required": ["topic", "consumer_id"],
+        "required": ["topic_name", "consumer_id"],
     }
 )
 def consume():
     """Consume a log from a topic."""
-    topic_name = request.get_json()["topic"]
+    topic_name = request.get_json()["topic_name"]
     consumer_id = request.get_json()["consumer_id"]
     try:
         log = redirector.get_log(topic_name, consumer_id)
@@ -172,15 +172,15 @@ def consume():
     {
         "type": "object",
         "properties": {
-            "topic": {"type": "string"},
-            "consumer_id": {"type": "string"},
+            "topic_name": {"type": "string"},
+            "consumer_id": {"type": "integer"},
         },
-        "required": ["topic", "consumer_id"],
+        "required": ["topic_name", "consumer_id"],
     }
 )
 def size():
     """Return the number of log messages in the requested topic for this consumer."""
-    topic_name = request.get_json()["topic"]
+    topic_name = request.get_json()["topic_name"]
     consumer_id = request.get_json()["consumer_id"]
     try:
         size = redirector.get_size(topic_name, consumer_id)
@@ -192,20 +192,20 @@ def size():
 
 
 #A link to add new partitions to a specific topic
-@app.route(rule = "/partition", methods = ["GET"])
+@app.route(rule = "/partition", methods = ["POST"])
 @expects_json(
     {
         "type":"object",
         "properties": {
-            "topic":{"type":"string"},
-            "producer_id":{"type":"int"},
+            "topic_name":{"type":"string"},
+            "producer_id":{"type":"integer"},
         },
-        "required": ["topic","producer_id"]
+        "required": ["topic_name","producer_id"]
     }
 )
 def partition():
     """Create a new partition in the mentioned topic."""
-    topic_name = request.get_json()["topic"]
+    topic_name = request.get_json()["topic_name"]
     producer_id = request.get_json()["producer_id"]
 
     try:
