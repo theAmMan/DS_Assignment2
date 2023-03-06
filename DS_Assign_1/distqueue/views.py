@@ -17,7 +17,8 @@ def Topics(request):
             final_resp['message'] = "No key 'topic_name' found in the POST method"
             return JsonResponse(final_resp)
         else:
-            final_resp = createTopic(request.POST.get('topic_name'),request.POST.get('partition_no'))
+            print("Creating the topic")
+            final_resp = createTopic(request.POST.get('topic_name'), int(request.POST.get('partition_no')))
             return JsonResponse(final_resp)
 
 def registerConsumer(request):
@@ -64,7 +65,7 @@ def enqueue(request):
         if request.POST.get('producer_id') == None:
             final_resp["message"] = "No key 'producer_id' found in the POST method"
             return JsonResponse(final_resp)
-        if request.GET.get('partition_no') == None:
+        if request.POST.get('partition_no') == None:
             final_resp["message"] = "No 'partition_no' found in the GET method"
             return JsonResponse(final_resp)
 

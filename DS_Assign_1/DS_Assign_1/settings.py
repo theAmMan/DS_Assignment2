@@ -80,12 +80,12 @@ WSGI_APPLICATION = 'DS_Assign_1.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': os.environ.get('NAME'),
-        # 'NAME': 'queue',
+        # 'NAME': os.environ.get('NAME'),
+        'NAME': 'queue2',
         'USER': 'postgres',
         'PASSWORD': 'eshamanideep25',
-        'HOST': 'host.docker.internal',
-        # 'HOST': 'localhost',
+        # 'HOST': 'host.docker.internal',
+        'HOST': 'localhost',
         'PORT': 5432,
     }
 }

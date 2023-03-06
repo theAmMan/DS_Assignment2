@@ -15,8 +15,9 @@ def createTopic(name, partition_no):
     topics = Topic.objects.filter(topic_name = name, partition_number = partition_no)
     if not topics:
         #query set is empty, the name does not exist
+        print("Creating a topic")
         Topic.objects.create(topic_name = name, partition_number = partition_no)
-        ret_dict['status'] = "sucess"
+        ret_dict['status'] = "success"
         ret_dict["message"] = "Topic "+name+" succesfully created"
         return ret_dict 
     else:
@@ -27,6 +28,7 @@ def createTopic(name, partition_no):
 def listTopics():
     ret_dict = {'status':'failure'}
     topics = Topic.objects.all()
+    print(topics)
     if not topics:
         ret_dict["message"] = "Error: No topics are present"
     else:
@@ -89,7 +91,7 @@ def qenqueue(topic, pid, message, partition_no):
         #     ret_dict['message'] = "Error: Producer is not subscribed to the topic mentioned"
         #     return ret_dict
         
-        LogMessage.objects.create(message = message, prod = producers[0], 
+        LogMessage.objects.create(message = message,
                             topic_name = topics[0])
         ret_dict['status'] = 'success'
 
@@ -100,7 +102,9 @@ def qsize(topic, cid, partition_no):
     ret_dict = {'status':'failure'}
 
     if partition_no != None:
-        topics = Topic.objects.filter(topic_name = topic, partition_no = partition_no)
+        # print("Hey")
+        topics = Topic.objects.filter(topic_name = topic, partition_number = partition_no)
+        # print("Hi there?")
         if not topics:
             ret_dict['message'] = "Error: Invalid topic/partition"
             return ret_dict
@@ -117,8 +121,8 @@ def qsize(topic, cid, partition_no):
         
         count = 0 
         # for topic_x in topics:
-        count += LogMessage.objects.filter(topic_name = topic, partition_no = partition_no).count()
-        count -= consumers[0].views.filter(topic_name = topic, partition_no = partition_no).count()
+        count += LogMessage.objects.filter(topic_name = topics[0]).count()
+        count -= consumers[0].views.filter(topic_name = topics[0]).count()
 
         ret_dict['status'] = "success"
         ret_dict['size'] = count 
@@ -141,10 +145,14 @@ def qsize(topic, cid, partition_no):
             return ret_dict
         
         count = 0 
-        count += LogMessage.objects.filter(topic_name = topic).count()
+        # count += LogMessage.objects.filter(topic_name = topic).count()
 
-        count -= consumers[0].views.all().count()
+        # count -= consumers[0].views.all().count()
 
+        for topic_x in topics:
+            count += LogMessage.objects.filter(topic_name = topic_x).count()
+            count -= consumers[0].views.filter(topic_name = topic_x).count()
+        
         ret_dict['status'] = "success"
         ret_dict['size'] = count 
         return ret_dict

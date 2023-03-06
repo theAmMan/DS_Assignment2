@@ -2,7 +2,7 @@ import requests
 
 #File to manually test all the endpoints
 import requests
-serverLink = "http://127.0.0.1:5000"
+serverLink = "http://127.0.0.1:8000"
     
 def createTopic(topic):
     newServerLink = serverLink + "/topics"

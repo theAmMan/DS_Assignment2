@@ -132,7 +132,7 @@ class Redirector():
         newLink = get_link(7000+broker_number) + "/topics"
         print(newLink)
         _params = {"topic_name":topic_name, "partition_no" : partition_id}
-        resp = requests.post(newLink, json = _params)
+        resp = requests.post(newLink, json = _params, data = _params)
 
         if resp.json()['status'] == "success":
             db.session.add(Partition_Model(topic_name = topic_name, partition_number = partition_id, broker = broker_number))
