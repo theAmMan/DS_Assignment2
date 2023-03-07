@@ -27,7 +27,7 @@ def healthCheck(redirector):
 with app.app_context():
     if app.config["TESTING"]:
         print("Dropping all tables...")
-        # db.drop_all()
+        db.drop_all()
         print("Finished dropping tables")
 
     print("Creating tables...")

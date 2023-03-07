@@ -93,15 +93,16 @@ class Redirector():
     def get_size(self, topic_name: str, consumer_id: int, partition_no = -1) -> int:
         print("Get size22")
         #Get the number of remaining messages in the specific partition for the consumer
-        consumer = Consumer_Model.query.filter_by(id = consumer_id).first()
-        consumer.heartbeat = db.func.now()
-        db.session.commit()
         if not self._exists(topic_name):
             raise Exception("Topic does not exist")
 
         if Consumer_Model.query.filter_by(topic_name = topic_name, id = consumer_id).count() == 0:
             raise Exception("Consumer not registered with this topic")
 
+        consumer = Consumer_Model.query.filter_by(id = consumer_id).first()
+        consumer.heartbeat = db.func.now()
+        db.session.commit()
+        
         if partition_no == -1: 
             #Get the remaining number of messages from each partition of the topic
             size = 0
@@ -124,6 +125,7 @@ class Redirector():
         # _params = {"topic_name" : topic_name, "consumer_id" : consumer_id}
         _params = {"topic_name" : topic_name, "consumer_id" : consumer_id, "partition_no" : partition_no}
         resp = requests.get(newLink, data = _params, json = _params, params = _params)
+        print(resp.json())
         if resp.json()['status'] == "success":
             return resp.json()['size']
         print(resp.json())
@@ -138,11 +140,7 @@ class Redirector():
             raise Exception("No broker is currently registered")
         
         #Create a partition in the specific topic
-        if producer_id != None: 
-            producer = Producer_Model.query.filter_by(id = producer_id).first()
-            producer.heartbeat = db.func.now()
-            db.session.commit()
-
+        
         if Topic_Model.query.filter_by(name = topic_name).count()==0:
         # if topic_name not in self._metadata.keys():
             raise Exception("Topic does not exist")
@@ -151,6 +149,9 @@ class Redirector():
             if Producer_Model.query.filter_by(topic_name = topic_name, id = producer_id).count() == 0:
             # if producer_id not in self._metadata[topic_name].producers:
                 raise Exception("Producer is not subscribed to the topic")
+            producer = Producer_Model.query.filter_by(id = producer_id).first()
+            producer.heartbeat = db.func.now()
+            db.session.commit()
 
         # partition_id starts at 0, and is sequential
         partition_id = len(Partition_Model.query.filter_by(topic_name = topic_name).all()) +1
@@ -174,6 +175,13 @@ class Redirector():
         # print(newLink)
         _params = {"topic_name":topic_name, "partition_no" : partition_id}
         resp = requests.post(newLink, json = _params, data = _params)
+
+        for consumer in Consumer_Model.query.filter_by(topic_name = topic_name).all():
+            #Inform the broker about the new consumer
+            newLink = get_link(broker_number) + "/consumer/register"
+            _params = {"topic_name" : topic_name, "consumer_id": consumer.id}
+            requests.post(newLink, data = _params)
+
 
         if resp.json()['status'] == "success":
             db.session.add(Partition_Model(topic_name = topic_name, partition_number = partition_id, broker = broker_number))
@@ -229,9 +237,6 @@ class Redirector():
     def add_log(self, topic_name: str, producer_id: int, message: str, partition_no = -1) -> None:
         print("Add log")
         #add a log to the specific partition 
-        producer = Producer_Model.query.filter_by(id = producer_id).first()
-        producer.heartbeat = db.func.now()
-        db.session.commit()
         if partition_no == -1:
             if not self._exists(topic_name):
                 raise Exception("Topic does not exist")
@@ -245,6 +250,9 @@ class Redirector():
         if not self._exists(topic_name, partition_no):
             raise Exception("The Partition does not exist")
 
+        producer = Producer_Model.query.filter_by(id = producer_id).first()
+        producer.heartbeat = db.func.now()
+        db.session.commit()
         #Now send the add request to the appropriate broker 
         # print("Hey")
         partition = Partition_Model.query.filter_by(topic_name = topic_name, partition_number = partition_no).first()
@@ -258,14 +266,15 @@ class Redirector():
     def get_log(self, topic_name: str, consumer_id: int):
         print("Get log")
         #Can return None or the message depending on if the queue is full or not
-        consumer = Consumer_Model.query.filter_by(id = consumer_id).first()
-        consumer.heartbeat = db.func.now()
-        db.session.commit()
         if not self._exists(topic_name):
             raise Exception("Topic does not exist")
 
         if Consumer_Model.query.filter_by(topic_name = topic_name, id = consumer_id).count() == 0:
             raise Exception("Consumer not registered with this topic")
+        
+        consumer = Consumer_Model.query.filter_by(id = consumer_id).first()
+        consumer.heartbeat = db.func.now()
+        db.session.commit()
         
         log_msg = {}
 
