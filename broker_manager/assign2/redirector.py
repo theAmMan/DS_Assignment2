@@ -85,9 +85,12 @@ class Redirector():
             return self._metadata[topic_name].get_partition_count()
 
 
-    def get_size(self, topic_name: str, consumer_id: str, partition_no = -1) -> int:
+    def get_size(self, topic_name: str, consumer_id: int, partition_no = -1) -> int:
         print("Get size")
         #Get the number of remaining messages in the specific partition for the consumer
+        consumer = Consumer_Model.query.filter_by(id = consumer_id).first()
+        consumer.heartbeat = db.func.now()
+        db.session.commit()
         if topic_name not in self._metadata:
             raise Exception("Topic does not exists")
         if consumer_id not in self._metadata[topic_name].consumers:
@@ -121,7 +124,12 @@ class Redirector():
 
     def create_partition(self, topic_name: str, producer_id = None) -> str:
         print("Create partition")
-        #Create a partition in the specific topic 
+        #Create a partition in the specific topic
+        if producer_id != None: 
+            producer = Producer_Model.query.filter_by(id = producer_id).first()
+            producer.heartbeat = db.func.now()
+            db.session.commit()
+            
         if producer_id != None:
             if producer_id not in self._metadata[topic_name].producers:
                 raise Exception("Producer is not subscribed to the topic")
@@ -203,6 +211,9 @@ class Redirector():
     def add_log(self, topic_name: str, producer_id: int, message: str, partition_no = -1) -> None:
         print("Add log")
         #add a log to the specific partition 
+        producer = Producer_Model.query.filter_by(id = producer_id).first()
+        producer.heartbeat = db.func.now()
+        db.session.commit()
         if partition_no == -1:
             if not self._exists(topic_name):
                 raise Exception("Topic does not exist")
@@ -229,6 +240,9 @@ class Redirector():
     def get_log(self, topic_name: str, consumer_id: int):
         print("Get log")
         #Can return None or the message depending on if the queue is full or not
+        consumer = Consumer_Model.query.filter_by(id = consumer_id).first()
+        consumer.heartbeat = db.func.now()
+        db.session.commit()
         if not self._exists(topic_name):
             raise Exception("Topic does not exist")
 
@@ -272,15 +286,6 @@ class Redirector():
             self._ids[2] += 1
             self._broker[broker_id] = 0
 
-        #Create the database
-        # create_database(broker_id)
-
-        #Run the docker container on the new database on a child process
-        # p = multiprocessing.Process(target = run_broker_container, args = (broker_id,))
-        # p.start()
-        # # p.join()
-        # print("Hiii")
-
         db.session.add(Broker_Model(port = 7000 + broker_id))
         db.session.commit()
 
@@ -293,9 +298,20 @@ class Redirector():
         with self._lock:
             if self._containers[broker_id] is None:
                 raise Exception("Broker with the given id does not exist")
-            
-            #Delete the container first
-            # self._containers[broker_id].stop()
-            # self._containers[broker_id].prune()
+
 
         delete_database(broker_id)
+
+    def healthCheck(self): 
+        # Health Check implementation
+        for broker_id in self._broker.keys():
+            newLink = get_link(7000+broker_id) + "/health"
+            print(newLink)
+            _params = {}
+            try:
+                resp = requests.post(newLink, json = _params, data = _params, timeout = 2)
+                broker = Broker_Model.query.filter_by(port = 7000 + broker_id).first()
+                broker.heartbeat = db.func.now()
+                db.session.commit()
+            except requests.exceptions.Timeout:
+                print("The request timed out: Broker "+str(broker_id)+" is not responding !")

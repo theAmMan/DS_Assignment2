@@ -133,3 +133,7 @@ def probe(request):
 
     final_resp['message'] = 'POST method not supported for this endpoint'
     return JsonResponse(final_resp)
+
+def health(request):
+    final_resp = {'status':'alive'}
+    return JsonResponse(final_resp)

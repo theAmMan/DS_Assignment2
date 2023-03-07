@@ -21,7 +21,7 @@ class Topic:
             self.current_round_robin_index = 0
 
     def update_round_robin(self) -> None:
-        self.current_round_robin_index = (self.current_round_robin_index + 1)%len(self.partitions) + 1
+        self.current_round_robin_index = (self.current_round_robin_index)%len(self.partitions) + 1
 
     def get_partition_count(self) -> int:
         return len(self.partitions)

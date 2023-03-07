@@ -38,7 +38,6 @@ def enqueue(topic, producer_id, message, partition_no = -1):
     # print(output.json())
     return output.json()
 
-
 def dequeue(topic, consumer_id):
     newServerLink = serverLink + "/consumer/consume"
     _params = {"topic_name" : topic, "consumer_id": consumer_id}

@@ -9,4 +9,5 @@ urlpatterns = [
     path('consumer/consume',views.dequeue),
     path('consumer/probe',views.probe),
     path('size',views.size),
+    path('health', views.health),
 ]
