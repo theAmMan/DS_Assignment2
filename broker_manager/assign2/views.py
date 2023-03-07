@@ -238,4 +238,24 @@ def partition():
         return make_response(
             jsonify({"status":"failure", "message": str(e)}), 400
         )
-        
+
+@app.route(rule = "/add_broker", methods = ["POST"])
+@expects_json(
+    {
+        "type": "object",
+        "properties": {
+            "port" : {"type":"integer"},
+        },
+        "required" : ["port"]
+    }
+)
+def add_broker():
+    """Add a new broker at the said port."""
+    port_no = request.get_json()["port"]
+    try:
+        outcome = redirector.add_broker(port_no)
+        return make_response(jsonify({"status":outcome}),200)
+    except Exception as e:
+        return make_response(
+            jsonify({"status":"failure", "message" : str(e)}), 400
+        )       

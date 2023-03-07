@@ -62,3 +62,9 @@ def partition(topic, producer_id):
     _params = {"topic_name": topic, "producer_id": producer_id}
     output = requests.post(newServerLink, json = _params)
     return output.json()
+
+def add_broker(port):
+    newServerLink = serverLink + "/add_broker"
+    _params = {"port":port}
+    output = requests.post(newServerLink, json = _params)
+    return output.json()

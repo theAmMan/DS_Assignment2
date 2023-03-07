@@ -2,6 +2,7 @@ import asyncio, requests
 from flask import Flask, make_response, jsonify
 from flask import request
 import aiohttp
+from requests_futures.sessions import FuturesSession
 
 write_ports = [5001]
 read_ports = [5002,5003]
@@ -12,7 +13,7 @@ lock = asyncio.Lock()
 round_index = 0
 serverLink = "http://127.0.0.1:"
 
-# session = aiohttp.ClientSession()
+session = FuturesSession()
 
 async def get_link(reroute):
     global round_index
@@ -24,23 +25,21 @@ async def get_link(reroute):
     
 async def get_requests(params, link):
     #Redirect the get requests to the read managers 
-    print("Heyyy")
     # session = aiohttp.ClientSession()
+    global session
     final_link = await get_link(link)
-    print("Sending get requests to ", final_link)
     try:
-        return requests.get(final_link, json = params.get_json())
+        return session.get(final_link, json = params.get_json()).result()
     except:
-        return requests.get(final_link)
+        return session.get(final_link).result()
 
 async def post_requests(params, link):
-    # session = aiohttp.ClientSession()
+    global session
     final_link = (serverLink + str(write_ports[0])) + link
-    print("Sending post requests to ", final_link)
     try:
-        return requests.post(final_link, json = params.get_json())
+        return session.post(final_link, json = params.get_json()).result()
     except:
-        return requests.post(final_link)
+        return session.post(final_link).result()
 
 @app.route(rule = '/<link>', methods = ["GET", "POST"])
 async def reroute(link):

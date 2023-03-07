@@ -27,7 +27,7 @@ def healthCheck(redirector):
 with app.app_context():
     if app.config["TESTING"]:
         print("Dropping all tables...")
-        db.drop_all()
+        # db.drop_all()
         print("Finished dropping tables")
 
     print("Creating tables...")
@@ -43,7 +43,7 @@ with app.app_context():
         print("Development environment turned on")
         
     # thread1 = thread("HealthCheck", 1000)
-    thread1 = threading.Thread(target=healthCheck, args=(redirector,))
+    # thread1 = threading.Thread(target=healthCheck, args=(redirector,))
     # thread1.start()
 
     # thread1.join()

@@ -18,7 +18,6 @@ class Redirector():
         self._lock = threading.Lock()
         self._metadata: Dict[str, Topic] = {}
         self._broker: Dict[int, int] = {}
-        self._containers = {}
         self._ids = []
 
 
@@ -47,24 +46,28 @@ class Redirector():
 
     def _exists(self, topic_name: str, partition_no = None) -> bool:
         #Check whether the topic exists or not
-        with self._lock: 
-            if topic_name not in self._metadata:
+        if Topic_Model.query.filter_by(name = topic_name).count() == 0:
+            return False 
+        
+        elif partition_no != None:
+            if Partition_Model.query.filter_by(topic_name = topic_name, partition_number = partition_no).count() == 0:
                 return False 
-            
-            elif partition_no != None and partition_no not in self._metadata[topic_name].partitions:
-                return False 
-            
-            return True
+        
+        return True
 
 
     def add_topic(self, topic_name: str) -> None:
         print("Add Topic")
+        if Broker_Model.query.all() == []:
+            #No broker exists 
+            raise Exception("No brokers are registered currently")
+            
         #Add the topic
-        with self._lock:
-            if topic_name in self._metadata:
-                raise Exception("Topic already exists")
+        if Topic_Model.query.filter_by(name = topic_name).count() != 0:
+            raise Exception("Topic already exists")
 
-            self._metadata[topic_name] = Topic(topic_name)
+        with self._lock:
+              self._metadata[topic_name] = Topic(topic_name)
 
         db.session.add(Topic_Model(name = topic_name))
         db.session.commit()
@@ -76,25 +79,29 @@ class Redirector():
     def get_topics(self) -> List[str]:
         print("Get Topics")
         # List all topics
-        with self._lock:
-            return list(self._metadata.keys())
+        topics = []
+        for topic in Topic_Model.query.all():
+            topics.append(topic.name)
+        return topics
 
     def get_num_partitions(self, topic_name: str) -> int:
         print("Get Number of Partitions")
-        with self._lock:
-            return self._metadata[topic_name].get_partition_count()
+        return Partition_Model.query.filter_by(topic_name = topic_name).all().count()
+        # return self._metadata[topic_name].get_partition_count()
 
 
     def get_size(self, topic_name: str, consumer_id: int, partition_no = -1) -> int:
-        print("Get size")
+        print("Get size22")
         #Get the number of remaining messages in the specific partition for the consumer
         consumer = Consumer_Model.query.filter_by(id = consumer_id).first()
         consumer.heartbeat = db.func.now()
         db.session.commit()
-        if topic_name not in self._metadata:
-            raise Exception("Topic does not exists")
-        if consumer_id not in self._metadata[topic_name].consumers:
+        if not self._exists(topic_name):
+            raise Exception("Topic does not exist")
+
+        if Consumer_Model.query.filter_by(topic_name = topic_name, id = consumer_id).count() == 0:
             raise Exception("Consumer not registered with this topic")
+
         if partition_no == -1: 
             #Get the remaining number of messages from each partition of the topic
             size = 0
@@ -109,6 +116,7 @@ class Redirector():
                     pass 
             return size
         # Feature implemented : Support for multiple partitions in a broker for the same topic
+        print("Hey")
         partition = Partition_Model.query.filter_by(topic_name = topic_name, partition_number = partition_no).first()
         if partition == None:
             raise Exception("The Partition Number does not exist")
@@ -118,47 +126,57 @@ class Redirector():
         resp = requests.get(newLink, data = _params, json = _params, params = _params)
         if resp.json()['status'] == "success":
             return resp.json()['size']
+        print(resp.json())
         return -1
 
 
 
     def create_partition(self, topic_name: str, producer_id = None) -> str:
         print("Create partition")
+        if Broker_Model.query.all() == []:
+            #No broker currently registered
+            raise Exception("No broker is currently registered")
+        
         #Create a partition in the specific topic
         if producer_id != None: 
             producer = Producer_Model.query.filter_by(id = producer_id).first()
             producer.heartbeat = db.func.now()
             db.session.commit()
-            
+
+        if Topic_Model.query.filter_by(name = topic_name).count()==0:
+        # if topic_name not in self._metadata.keys():
+            raise Exception("Topic does not exist")
+        
         if producer_id != None:
-            if producer_id not in self._metadata[topic_name].producers:
+            if Producer_Model.query.filter_by(topic_name = topic_name, id = producer_id).count() == 0:
+            # if producer_id not in self._metadata[topic_name].producers:
                 raise Exception("Producer is not subscribed to the topic")
 
-        if topic_name not in self._metadata.keys():
-            raise Exception("Topic does not exist")
+        # partition_id starts at 0, and is sequential
+        partition_id = len(Partition_Model.query.filter_by(topic_name = topic_name).all()) +1
+        self._metadata[topic_name].add_partition(partition_id)
+        #Now allocate a broker to the partition 
+        broker_number = 0
+        broker_size = MAX_SIZE # This needs to be set
         with self._lock:
-            # partition_id starts at 0, and is sequential
-            partition_id = len(Partition_Model.query.filter_by(topic_name = topic_name).all()) +1
-            self._metadata[topic_name].add_partition(partition_id)
-            #Now allocate a broker to the partition 
-            broker_number = 0
-            broker_size = MAX_SIZE # This needs to be set
             for broker_id in self._broker.keys():
                 if self._broker[broker_id] < broker_size:
                     broker_size = self._broker[broker_id]
                     broker_number = broker_id
         
         if broker_size == MAX_SIZE:
-            broker_number = self.add_broker()
+            # broker_number = self.add_broker()
+            print("Broker Overload : Please create new broker")
 
         #Add the partition to the broker
-        newLink = get_link(7000+broker_number) + "/topics"
-        print(newLink)
+        self._broker[broker_number] += 1
+        newLink = get_link(broker_number) + "/topics"
+        # print(newLink)
         _params = {"topic_name":topic_name, "partition_no" : partition_id}
         resp = requests.post(newLink, json = _params, data = _params)
 
         if resp.json()['status'] == "success":
-            db.session.add(Partition_Model(topic_name = topic_name, partition_number = partition_id, broker = 7000+broker_number))
+            db.session.add(Partition_Model(topic_name = topic_name, partition_number = partition_id, broker = broker_number))
             db.session.commit()
             return "success" 
 
@@ -218,7 +236,7 @@ class Redirector():
             if not self._exists(topic_name):
                 raise Exception("Topic does not exist")
 
-            if producer_id not in self._metadata[topic_name].producers:
+            if Producer_Model.query.filter_by(topic_name = topic_name, id = producer_id).count() == 0:
                 raise Exception("Producer is not subscribed to the topic")
             
             self._metadata[topic_name].update_round_robin()
@@ -246,8 +264,8 @@ class Redirector():
         if not self._exists(topic_name):
             raise Exception("Topic does not exist")
 
-        if consumer_id not in self._metadata[topic_name].consumers:
-            raise Exception("Consumer is not subscribed to the topic")
+        if Consumer_Model.query.filter_by(topic_name = topic_name, id = consumer_id).count() == 0:
+            raise Exception("Consumer not registered with this topic")
         
         log_msg = {}
 
@@ -278,39 +296,48 @@ class Redirector():
         return requests.get(newLink, data = _params, params = _params, json = _params).json()['message']
         
 
-    def add_broker(self):
+    def add_broker(self, port_no: int):
         print("Add Broker")
-        # Add new broker
-        with self._lock:
-            broker_id = self._ids[2] + 1
-            self._ids[2] += 1
-            self._broker[broker_id] = 0
 
-        db.session.add(Broker_Model(port = 7000 + broker_id))
+        # does_exist = Broker_Model.query.filter_by(port_no = port_no).all()
+        # if does_exist != []:
+        if Broker_Model.query.filter_by(port = port_no).count() != 0:
+            #Broker with that port number already exist
+            raise Exception("A broker already exists on the given port number")
+
+        db.session.add(Broker_Model(port = port_no))
         db.session.commit()
 
-        return broker_id
+        # print("Heyyy")
 
+        with self._lock:
+            self._broker[port_no] = 0
 
-    def remove_broker(self, broker_id):
+        return "success"
+
+    def remove_broker(self, port_no : int):
         print("Remove Broker")
         # Remove existing broker and delete the database
+        does_exist = Broker_Model.query.filter_by(port_no = port_no).all()
+        if does_exist == []:
+            #Broker with that port number already exist
+            raise Exception("No broker exists on the given port number")
+
+        db.delete(does_exist)
+        db.commit()
+
         with self._lock:
-            if self._containers[broker_id] is None:
-                raise Exception("Broker with the given id does not exist")
-
-
-        delete_database(broker_id)
+            del self._broker[port_no]
 
     def healthCheck(self): 
         # Health Check implementation
         for broker_id in self._broker.keys():
-            newLink = get_link(7000+broker_id) + "/health"
+            newLink = get_link(broker_id) + "/health"
             print(newLink)
             _params = {}
             try:
                 resp = requests.post(newLink, json = _params, data = _params, timeout = 2)
-                broker = Broker_Model.query.filter_by(port = 7000 + broker_id).first()
+                broker = Broker_Model.query.filter_by(port = broker_id).first()
                 broker.heartbeat = db.func.now()
                 db.session.commit()
             except requests.exceptions.Timeout:
