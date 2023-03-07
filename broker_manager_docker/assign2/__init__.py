@@ -4,7 +4,7 @@ from flask_sqlalchemy import SQLAlchemy
 import config 
 
 app = Flask(__name__)
-app.config.from_object(config.production_config)
+app.config.from_object(config.development_config)
 db = SQLAlchemy(app)
 from .models import *
 
@@ -17,7 +17,7 @@ from assign2 import views
 with app.app_context():
     if app.config["TESTING"]:
         print("Dropping all tables...")
-        # db.drop_all()
+        db.drop_all()
         print("Finished dropping tables")
 
     print("Creating tables...")

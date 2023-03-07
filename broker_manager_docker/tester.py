@@ -31,7 +31,7 @@ def registerProducer(topic):
     # print(output.json())
     return output.json()
 
-def enqueue(topic, producer_id, message, partition_no = -1):
+def enqueue(topic, producer_id, message, partition_no=None):
     newServerLink = serverLink + "/producer/produce"
     _params = {"topic_name" : topic, "producer_id": producer_id, "message": message, "partition_no": partition_no}
     output = requests.post(newServerLink, json = _params)
@@ -46,9 +46,9 @@ def dequeue(topic, consumer_id):
     # print(output.json())
     return output.json()
 
-def size(topic, consumer_id, partition_no = -1):
+def size(topic, consumer_id):
     newServerLink = serverLink + "/size"
-    _params = {"topic_name" : topic, "consumer_id": consumer_id, "partition_no": partition_no}
+    _params = {"topic_name" : topic, "consumer_id": consumer_id}
     output = requests.get(newServerLink, json = _params)
     return output.json()
 

@@ -30,7 +30,7 @@ def registerConsumer(request):
             final_resp['message'] = "No key 'topic_name' found in the POST method"
             return JsonResponse(final_resp)
         #register the consumer
-        final_resp = qregisterConsumer(request.POST.get('topic_name'))
+        final_resp = qregisterConsumer(request.POST.get('topic_name'), request.POST.get('consumer_id'))
         return JsonResponse(final_resp)
 
     final_resp['status'] = 'failure'
@@ -62,15 +62,15 @@ def enqueue(request):
         if request.POST.get('topic_name') == None:
             final_resp["message"] = "No key 'topic_name' found in the POST method"
             return JsonResponse(final_resp)
-        if request.POST.get('producer_id') == None:
-            final_resp["message"] = "No key 'producer_id' found in the POST method"
+        # if request.POST.get('producer_id') == None:
+        #     final_resp["message"] = "No key 'producer_id' found in the POST method"
             return JsonResponse(final_resp)
         if request.POST.get('partition_no') == None:
             final_resp["message"] = "No 'partition_no' found in the GET method"
             return JsonResponse(final_resp)
 
         #Add the log message to the queue
-        final_resp = qenqueue(request.POST.get('topic_name'),request.POST.get('producer_id'),request.POST.get('message'),request.POST.get('partition_no'))
+        final_resp = qenqueue(request.POST.get('topic_name'),request.POST.get('message'),request.POST.get('partition_no'))
         return JsonResponse(final_resp)
 
     final_resp['message'] = 'GET method not supported for this endpoint'
@@ -100,6 +100,7 @@ def size(request):
     final_resp = {'status':'failure'}
     if request.method == 'GET':
         # Check if valid parameters
+        print("YO")
         if request.GET.get('topic_name') == None:
             final_resp["message"] = "No key 'topic_name' found in the GET method"
             return JsonResponse(final_resp)

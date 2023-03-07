@@ -38,16 +38,22 @@ def listTopics():
         ret_dict['status'] = "success"
     return ret_dict
 
-def qregisterConsumer(topic):
+def qregisterConsumer(topic, consumer_id):
     ret_dict = {'status':'failure'}
     topics = Topic.objects.filter(topic_name = topic)
     if not topics:
         ret_dict['message'] = "Error: Topic does not exist"
     else:
-        Consumer.objects.create(cid = Consumer.objects.all().count()+1)
+        if Consumer.objects.filter(cid = consumer_id).all() == []:
+            consum = Consumer.objects.create(cid = Consumer.objects.all().count()+1)
+
+        else :
+            #Already exists, just clear the many to many field and etc
+            consum = Consumer.objects.filter(cid = consumer_id)[0]
+            consum.views.clear()
+            consum.subscriptions.clear()
 
         #retrieve the last object created and add the topic they are subscribed to
-        consum = Consumer.objects.filter(cid = Consumer.objects.all().count())[0]
         for topic_x in topics:
             consum.subscriptions.add(topic_x)
         consum.save()
@@ -75,17 +81,17 @@ def qregisterProducer(topic):
 
     return ret_dict
 
-def qenqueue(topic, pid, message, partition_no):
+def qenqueue(topic, message, partition_no):
     ret_dict = {'status':'failure'}
     #Check if topic is present
     topics = Topic.objects.filter(topic_name = topic, partition_number = partition_no)
     if not topics:
         ret_dict["message"] = "Error: Invalid topic"
     else:
-        producers = Producer.objects.filter(pid = pid)
-        if not producers:
-            ret_dict['message'] = "Error: Invalid Producer"
-            return ret_dict
+        # producers = Producer.objects.filter(pid = pid)
+        # if not producers:
+        #     ret_dict['message'] = "Error: Invalid Producer"
+        #     return ret_dict
 
         # if producers[0].subscribed_topic != topics[0]:
         #     ret_dict['message'] = "Error: Producer is not subscribed to the topic mentioned"
@@ -102,9 +108,9 @@ def qsize(topic, cid, partition_no):
     ret_dict = {'status':'failure'}
 
     if partition_no != None:
-        # print("Hey")
+        print("Hey")
         topics = Topic.objects.filter(topic_name = topic, partition_number = partition_no)
-        # print("Hi there?")
+        print("Hi there?")
         if not topics:
             ret_dict['message'] = "Error: Invalid topic/partition"
             return ret_dict
@@ -145,9 +151,6 @@ def qsize(topic, cid, partition_no):
             return ret_dict
         
         count = 0 
-        # count += LogMessage.objects.filter(topic_name = topic).count()
-
-        # count -= consumers[0].views.all().count()
 
         for topic_x in topics:
             count += LogMessage.objects.filter(topic_name = topic_x).count()

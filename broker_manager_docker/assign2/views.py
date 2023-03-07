@@ -144,7 +144,6 @@ def produce():
     message = request.get_json()["message"]
     partition_no = request.get_json(silent = True)["partition_no"]
     try:
-        print("heyy")
         redirector.add_log(topic_name, producer_id, message,partition_no)
         return make_response(
             jsonify({"status": "success"}),
@@ -204,9 +203,8 @@ def size():
     """Return the number of log messages in the requested topic for this consumer."""
     topic_name = request.get_json()["topic_name"]
     consumer_id = request.get_json()["consumer_id"]
-    partition_no = request.get_json(silent = True)["partition_no"]
     try:
-        size = redirector.get_size(topic_name, consumer_id, partition_no)
+        size = redirector.get_size(topic_name, consumer_id)
         return make_response(jsonify({"status": "success", "size": size}), 200)
     except Exception as e:
         return make_response(
