@@ -85,27 +85,37 @@ class Redirector():
             return self._metadata[topic_name].get_partition_count()
 
 
-    def get_size(self, topic_name: str, consumer_id: str, partition_no = None) -> int:
+    def get_size(self, topic_name: str, consumer_id: str, partition_no = -1) -> int:
         print("Get size")
         #Get the number of remaining messages in the specific partition for the consumer
         if topic_name not in self._metadata:
             raise Exception("Topic does not exists")
         if consumer_id not in self._metadata[topic_name].consumers:
             raise Exception("Consumer not registered with this topic")
-        if partition_no == None: 
+        if partition_no == -1: 
             #Get the remaining number of messages from each partition of the topic
             size = 0
             for partition in Partition_Model.query.filter_by(topic_name = topic_name).all():
+                # print(size)
                 newLink = get_link(partition.broker) + "/size"
-                _params = {"topic_name" : topic_name, "consumer_id" : consumer_id}
-                size = size + requests.get(newLink, data = _params)
+                _params = {"topic_name" : topic_name, "consumer_id" : consumer_id, "partition_no" : partition.id}
+                resp = requests.get(newLink, data = _params, json = _params, params = _params)
+                if resp.json()["status"] == "success":
+                    size = size + resp.json()['size']
+                else:
+                    pass 
             return size
         # Feature implemented : Support for multiple partitions in a broker for the same topic
         partition = Partition_Model.query.filter_by(topic_name = topic_name, partition_number = partition_no).first()
+        if partition == None:
+            raise Exception("The Partition Number does not exist")
         newLink = get_link(partition.broker) + "/size"
         # _params = {"topic_name" : topic_name, "consumer_id" : consumer_id}
         _params = {"topic_name" : topic_name, "consumer_id" : consumer_id, "partition_no" : partition_no}
-        return requests.get(newLink, data = _params)
+        resp = requests.get(newLink, data = _params, json = _params, params = _params)
+        if resp.json()['status'] == "success":
+            return resp.json()['size']
+        return -1
 
 
 
@@ -119,8 +129,8 @@ class Redirector():
         if topic_name not in self._metadata.keys():
             raise Exception("Topic does not exist")
         with self._lock:
-            # partition_id starts at 1, and is sequential
-            partition_id = len(Partition_Model.query.filter_by(topic_name = topic_name).all()) + 1
+            # partition_id starts at 0, and is sequential
+            partition_id = len(Partition_Model.query.filter_by(topic_name = topic_name).all()) +1
             self._metadata[topic_name].add_partition(partition_id)
             #Now allocate a broker to the partition 
             broker_number = 0
@@ -165,9 +175,8 @@ class Redirector():
         #Now let the other brokers subscribed to this specific topic know about the new consumer
         for partition in Partition_Model.query.filter_by(topic_name = topic_name).all():
             #Inform the broker about the new consumer
-            print("Hiiii")
             newLink = get_link(partition.broker) + "/consumer/register"
-            _params = {"topic_name" : topic_name}
+            _params = {"topic_name" : topic_name, "consumer_id": consumer_id}
             requests.post(newLink, data = _params)
 
         return consumer_id
@@ -191,28 +200,30 @@ class Redirector():
         return producer_id
 
     
-    def add_log(self, topic_name: str, producer_id: int, message: str, partition_no = None) -> None:
+    def add_log(self, topic_name: str, producer_id: int, message: str, partition_no = -1) -> None:
         print("Add log")
         #add a log to the specific partition 
-        if partition_no == None:
+        if partition_no == -1:
             if not self._exists(topic_name):
                 raise Exception("Topic does not exist")
 
             if producer_id not in self._metadata[topic_name].producers:
                 raise Exception("Producer is not subscribed to the topic")
             
-            partition_no = self._metadata[topic_name].current_round_robin_index
             self._metadata[topic_name].update_round_robin()
+            partition_no = self._metadata[topic_name].current_round_robin_index
 
         if not self._exists(topic_name, partition_no):
-            raise Exception("Topic or the Partition does not exist")
+            raise Exception("The Partition does not exist")
 
         #Now send the add request to the appropriate broker 
+        # print("Hey")
         partition = Partition_Model.query.filter_by(topic_name = topic_name, partition_number = partition_no).first()
         newLink = get_link(partition.broker) + "/producer/produce" #Link for publishing to the specific partition of a particular topic 
         # _params = {"topic_name" : topic_name} #Complete this part as well
-        _params = {"topic_name" : topic_name, "partition_no" : partition_no}
-        requests.post(newLink, data = _params)
+        _params = {"topic_name" : topic_name, "partition_no" : partition_no, "message" : message}
+        # print(_params)
+        requests.post(newLink, data = _params, json = _params, params = _params)
 
 
     def get_log(self, topic_name: str, consumer_id: int):
@@ -229,24 +240,28 @@ class Redirector():
         for partition in Partition_Model.query.filter_by(topic_name = topic_name).all():
             newLink = get_link(partition.broker) + "/consumer/probe"
             _params = {"topic_name" : topic_name, "partition_no" : partition.partition_number, "consumer_id" : consumer_id}
-            msg = requests.get(newLink, data = _params)
+            msg = requests.get(newLink, data = _params, json = _params, params = _params)
+            print(msg.json())
             if msg.json()['status'] == 'success':
-                log_msg[partition] = msg
+                log_msg[partition] = msg.json()
 
         if len(log_msg) == 0:
             return None
 
         # FIX These Params
         partition_no = -1
-        min_time = 1e9
+        min_time = None
         for partition in log_msg.keys():
-            if log_msg[partition]['created'] < min_time :
+            if min_time == None:
                 min_time = log_msg[partition]['created']
                 partition_no = partition
-
+            elif log_msg[partition]['created'] < min_time :
+                min_time = log_msg[partition]['created']
+                partition_no = partition
+        # print(partition_no)
         newLink = get_link(partition_no.broker) + "/consumer/consume"
         _params = {"topic_name" : topic_name, "partition_no" : partition_no.partition_number, "consumer_id" : consumer_id}
-        return requests.get(newLink, data = _params)['message']
+        return requests.get(newLink, data = _params, params = _params, json = _params).json()['message']
         
 
     def add_broker(self):
@@ -280,7 +295,7 @@ class Redirector():
                 raise Exception("Broker with the given id does not exist")
             
             #Delete the container first
-            self._containers[broker_id].stop()
-            self._containers[broker_id].prune()
+            # self._containers[broker_id].stop()
+            # self._containers[broker_id].prune()
 
         delete_database(broker_id)
