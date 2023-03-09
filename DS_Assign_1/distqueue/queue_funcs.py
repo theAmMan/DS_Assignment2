@@ -44,14 +44,18 @@ def qregisterConsumer(topic, consumer_id):
     if not topics:
         ret_dict['message'] = "Error: Topic does not exist"
     else:
-        if Consumer.objects.filter(cid = consumer_id).all() == []:
-            consum = Consumer.objects.create(cid = Consumer.objects.all().count()+1)
+        consums = Consumer.objects.filter(cid = consumer_id)
+        if not consums:
+            consum = Consumer.objects.create(cid = consumer_id)
+            consum.save()
 
         else :
             #Already exists, just clear the many to many field and etc
-            consum = Consumer.objects.filter(cid = consumer_id)[0]
+            # print(Consumer.objects.filter(cid = consumer_id).all())
+            consum = consums[0]
             consum.views.clear()
             consum.subscriptions.clear()
+            consum.save()
 
         #retrieve the last object created and add the topic they are subscribed to
         for topic_x in topics:

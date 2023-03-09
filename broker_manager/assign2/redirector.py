@@ -107,7 +107,7 @@ class Redirector():
             #Get the remaining number of messages from each partition of the topic
             size = 0
             for partition in Partition_Model.query.filter_by(topic_name = topic_name).all():
-                # print(size)
+                print(size)
                 newLink = get_link(partition.broker) + "/size"
                 _params = {"topic_name" : topic_name, "consumer_id" : consumer_id, "partition_no" : partition.id}
                 resp = requests.get(newLink, data = _params, json = _params, params = _params)

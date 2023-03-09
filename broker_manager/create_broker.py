@@ -5,7 +5,7 @@ from psycopg2 import sql
 def run_broker_container(broker_id: int):
     client = docker.from_env()
     env_str = "NAME=queue"+str(broker_id)
-    ports = {'8000/tcp':7000+broker_id}
+    ports = {'8000/tcp':broker_id}
     cont = client.containers.run('broker', environment = [env_str], ports = ports)
 
 def create_database(id: int):
