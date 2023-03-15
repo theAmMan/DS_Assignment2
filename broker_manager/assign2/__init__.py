@@ -18,10 +18,15 @@ from assign2 import views
 import threading
 import time
 
-def healthCheck(redirector):
+def healthCheck():
 		# print(str(self.thread_name) +" "+ str(self.thread_ID));
         while True:
-            redirector.healthCheck()
+            # print("Hi")
+            try:
+                with app.app_context():
+                    redirector.healthCheck()
+            except Exception as e :
+                print(e)
             time.sleep(15)
 
 with app.app_context():
@@ -43,8 +48,8 @@ with app.app_context():
         print("Development environment turned on")
         
     # thread1 = thread("HealthCheck", 1000)
-    # thread1 = threading.Thread(target=healthCheck, args=(redirector,))
-    # thread1.start()
+    thread1 = threading.Thread(target=healthCheck, daemon=True)
+    thread1.start()
 
     # thread1.join()
     

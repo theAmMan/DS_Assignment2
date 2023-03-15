@@ -340,9 +340,10 @@ class Redirector():
 
     def healthCheck(self): 
         # Health Check implementation
+        # print(self._broker)
         for broker_id in self._broker.keys():
             newLink = get_link(broker_id) + "/health"
-            print(newLink)
+            # print(newLink)
             _params = {}
             try:
                 resp = requests.post(newLink, json = _params, data = _params, timeout = 2)

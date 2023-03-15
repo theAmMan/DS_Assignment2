@@ -25,7 +25,6 @@ async def get_link(reroute):
     
 async def get_requests(params, link):
     #Redirect the get requests to the read managers 
-    # session = aiohttp.ClientSession()
     global session
     final_link = await get_link(link)
     try:
@@ -34,6 +33,7 @@ async def get_requests(params, link):
         return session.get(final_link).result()
 
 async def post_requests(params, link):
+    #Redirect the post requests to the write manager
     global session
     final_link = (serverLink + str(write_ports[0])) + link
     try:
@@ -66,4 +66,4 @@ async def reroute2(link1, link2):
         return make_response(resp.json(),resp.status_code)
 
 if __name__ == '__main__':
-    app.run(debug = True)
+    app.run()
